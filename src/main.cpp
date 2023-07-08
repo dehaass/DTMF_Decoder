@@ -49,23 +49,31 @@ void setup(){
   y_frequencies[3]=941;
 }
 
-bool detect_tone(float freq){
+float measure_tone(float freq){
 
-Goertzel goertzel = Goertzel(freq, N, sampling_freq);        //initialize library function with the given sampling frequency no of samples and target freq
+  Goertzel goertzel = Goertzel(freq, N, sampling_freq);        //initialize library function with the given sampling frequency no of samples and target freq
   goertzel.sample(sensorPin);                               //Will take n samples          
   float magnitude = goertzel.detect();                      //check them for target_freq
 
- if(magnitude>threshold){                                   //if you're getting false hits or no hits adjust the threshold
-  digitalWrite(13,HIGH);                                    //blink led on 13 if a pulse is detected
-  if(DELAY) delay(250);
-  digitalWrite(13,LOW);
-  Serial.print(freq);
-  Serial.print("\n");
-  return true;
- }
+  return magnitude;
+}
+
+bool detect_tone(float freq){
+
+  float magnitude = measure_tone(freq);
+
+  if(magnitude>threshold){                                   //if you're getting false hits or no hits adjust the threshold
+    digitalWrite(13,HIGH);                                    //blink led on 13 if a pulse is detected
+    if(DELAY) delay(250);
+    digitalWrite(13,LOW);
+    Serial.print(freq);
+    Serial.print("\n");
+    return true;
+  }
   else
     return false;
 }
+
 
 int find_number(int row, int column){
   int number=0;
@@ -136,46 +144,126 @@ void print_number(int number){
   if(DELAY) delay(800);
 }
 
-void decode_tones(int *row, int *column){
 
+void sort_by_magnitude(float val[4], int ranks[4]){
+
+  float localVal[4] = {val[0], val[1], val[2], val[3]};
+  int max = 0;
+
+  for(int j=0; j<4; j++){
+    
+    max = 0;
+    for(int i=1; i<4; i++){
+      if(localVal[i] > localVal[max]) max = i;
+    }
+    ranks[j] = max;
+    localVal[max] = 0;
+  }
+
+  return;
+}
+
+int find_max_from_spectrum(float val[4]){
+
+  int max = 0;
+  for(int i=1; i<4; i++){
+    if(val[i] > val[max]) max = i;
+  }
+
+  return max;
+}
+
+
+void read_spectrum(float xval[4], float yval[4]){
   int i=0;
 
-  while(1){
-    if(detect_tone(x_frequencies[i]) == true){
-      *column = i;
-      break;
-    }
-    i++;
-  if(i==4) i=0;
+  for(i=0; i<4; i++){
+    xval[i] = measure_tone(x_frequencies[i]);
+    yval[i] = measure_tone(y_frequencies[i]);
   }
+  return;
+}
 
-  i=0;
-  while(1){
-  if(detect_tone(y_frequencies[i]) == true){
-      *row = i;
-      break;
-    }
-    i++;
-  if(i==4) i=0;
-  }
+void decode_tones(int *row, int *column){
+
+  float xval[4], yval[4];
+
+  read_spectrum(xval, yval);
+  *column = find_max_from_spectrum(xval);
+  *row    = find_max_from_spectrum(yval);
 
 }
 
-void loop(){
+
+void print_spectrum(float xval[4], float yval[4]){
+
+  //int i = 0;
+  char output[30] = "                           \n";
+
+  int column = find_max_from_spectrum(xval);
+  output[8+(column*5)] = '|';
+  output[8+(column*5)+1] = '|';
+  Serial.print(output);
+
+  sprintf(output, "xvals: %4d %4d %4d %4d\n", int(xval[0]), int(xval[1]), int(xval[2]), int(xval[3]));
+  Serial.print(output);
+  sprintf(output, "yvals: %4d %4d %4d %4d\n", int(yval[0]), int(yval[1]), int(yval[2]), int(yval[3]));
+  Serial.print(output);
+
+  sprintf(output, "                           \n");
+  int row = find_max_from_spectrum(yval);
+  output[8+(row*5)] = '|';
+  output[8+(row*5)+1] = '|';
+  Serial.print(output);
+  Serial.println();
+
+  int ranks[4];
+  sort_by_magnitude(xval, ranks);
+  int minXDifference = xval[ranks[0]] - xval[ranks[1]];
+  sort_by_magnitude(yval, ranks);
+  int minYDifference = yval[ranks[0]] - yval[ranks[1]];
+  int number = find_number(row, column);
+  sprintf(output, "decoded number: %d\nminXDiff: %4d, minYDiff: %4d\n", number, minXDifference, minYDifference);
+  Serial.print(output);
+  Serial.println();
+  Serial.println();
+
+}
+
+void calibrate(){
+  float xval[4], yval[4];
+
+  read_spectrum(xval, yval);
+
+  print_spectrum(xval, yval);
+  //Serial.println(xval[0]);
+
+}
+
+int decode_DTMF(){
   int number = 0;
   int row = 0;
   int column = 0;
 
   decode_tones(&row, &column);
   number = find_number(row,column);
-  print_number(number);
-  delay(500);
 
   //int column=0,row=0;
+
+  return number;
+}
+
+void loop(){
+
+  //calibrate();
+  //delay(3000);
+
+  int number = decode_DTMF();
+  print_number(number);
+
   if( number == 5){
     digitalWrite(LED_PIN, HIGH);
-    delay(500);
+  }else{
     digitalWrite(LED_PIN, LOW);
   }
-
 }
