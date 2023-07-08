@@ -29,8 +29,14 @@ const int sensorPin = A0; // Audio input
 const int LED_PIN = 2;
 const int N = 100;                       // Number of samples per measurement
 const float sampling_freq = 8900;        //maximum detectable frequency is the sampling rate/2 and arduino uno with 16Mhz can support sampling up to 8900 Hz
+const float threshhold = 2000;
 float x_frequencies[4] = {1209, 1336, 1477, 1633}; // Defined by the DTMF standard 
 float y_frequencies[4] = { 697,  770,  852,  941};
+const int buffLen = 5;
+int wordBuffer[buffLen] = {0,0,0,0,0};
+int buffIndex = 0;
+unsigned int lastBuffInsert = 0;
+const unsigned int debounce = 1000; // ms
 
 void setup(){
  
@@ -53,6 +59,8 @@ float measure_tone(float freq){
 int find_number(int row, int column){
 
   int number;
+
+  if(row == -1 || column == -1) return -1; // No good read
   if (column == 3){
     number = 10+row;
   }
@@ -76,18 +84,12 @@ void print_number(int number){
   Serial.print(number);
   }
 
-  else if(number ==10)
-  Serial.print('A');
-  else if(number ==11)
-  Serial.print('B');
-  else if(number ==12)
-  Serial.print('C');
-  else if(number ==13)
-  Serial.print('D');
-  else if(number ==14)
-  Serial.print('*');
-  else if(number ==15)
-  Serial.print('#');
+  else if(number ==10) Serial.print('A');
+  else if(number ==11) Serial.print('B');
+  else if(number ==12) Serial.print('C');
+  else if(number ==13) Serial.print('D');
+  else if(number ==14) Serial.print('*');
+  else if(number ==15) Serial.print('#');
   Serial.print("\n");
 }
 
@@ -142,6 +144,9 @@ void decode_tones(int *row, int *column){
   read_spectrum(xval, yval);
   *column = find_max_from_spectrum(xval);
   *row    = find_max_from_spectrum(yval);
+
+  if(xval[*column] < threshhold) *column = -1;
+  if(yval[*row] < threshhold) *row = -1;
 
 }
 
@@ -202,10 +207,40 @@ int decode_DTMF(){
   return number;
 }
 
+int prevIndex(){
+  return buffIndex <= 0 ? buffLen -1 : buffIndex - 1;
+}
+
+void read_buffer(){
+
+}
+
+void decode_word(){
+
+ int number = decode_DTMF();
+ if ( number == -1 || (wordBuffer[prevIndex()] == number && (lastBuffInsert + debounce) > millis()  )) return;
+ print_number(number);
+ //delay(500);
+
+ wordBuffer[buffIndex] = number;
+ lastBuffInsert = millis();
+ 
+ if(wordBuffer[buffIndex] == 9 && wordBuffer[prevIndex()] == 6){
+  Serial.println("Nice.");
+ }
+
+ buffIndex++;
+ if(buffIndex >= buffLen) buffIndex = 0;
+
+ return;
+}
+
 void loop(){
 
-  calibrate();
-  delay(3000);
+  // calibrate();
+  // delay(1000);
+
+  decode_word();
 
   // int number = decode_DTMF();
   // print_number(number);
