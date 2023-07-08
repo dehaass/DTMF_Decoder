@@ -35,30 +35,18 @@ float x_frequencies[4];                  // make two arrays for holding x and y 
 float y_frequencies[4];
 
 void setup(){
- pinMode(13, OUTPUT);                    //initalize blink led to show if any tone is detected
- pinMode(2, OUTPUT);                     //initialize 10 pins as output to show the dtmf outputs from 2 to number 12 rest will be serially printed to the monitor
- pinMode(3, OUTPUT);
- pinMode(4, OUTPUT);
- pinMode(5, OUTPUT);
- pinMode(6, OUTPUT);
- pinMode(7, OUTPUT);
- pinMode(8, OUTPUT);
- pinMode(9, OUTPUT);
- pinMode(10, OUTPUT);
- pinMode(11, OUTPUT);
- pinMode(12, OUTPUT);
  
   Serial.begin(9600); 
 
-x_frequencies[0]=1209;                //just initialize the arrays with the x and y axis tone frequencies along with their row and colon number
-x_frequencies[1]=1336;
-x_frequencies[2]=1477;
-x_frequencies[3]=1633;
+  x_frequencies[0]=1209;                //just initialize the arrays with the x and y axis tone frequencies along with their row and colon number
+  x_frequencies[1]=1336;
+  x_frequencies[2]=1477;
+  x_frequencies[3]=1633;
 
-y_frequencies[0]=697;
-y_frequencies[1]=770;
-y_frequencies[2]=852;
-y_frequencies[3]=941;
+  y_frequencies[0]=697;
+  y_frequencies[1]=770;
+  y_frequencies[2]=852;
+  y_frequencies[3]=941;
 }
 
 bool detect_tone(float freq){
@@ -79,103 +67,115 @@ Goertzel goertzel = Goertzel(freq, N, sampling_freq);        //initialize librar
     return false;
 }
 
+int find_number(int row, int column){
+  int number=0;
+  if(row==0){                                             //find the number corresponding to the found row and column
+    if(column== 0)
+    number= 1;
+    else if(column== 1)  
+    number= 2;
+    else if(column== 2)
+    number= 3;  
+    else if(column== 3)
+    number= 10;  
+  }
+  else if(row==1){
+    if(column== 0)
+    number= 4;  
+    else if(column== 1)
+    number= 5;    
+    else if(column== 2)
+    number= 6;    
+    else if(column== 3)
+    number= 11;    
+  }
+  else if(row==2){
+    if(column== 0)
+    number= 7;  
+    else if(column== 1)
+    number= 8;    
+    else if(column== 2)
+    number= 9;    
+    else if(column== 3)  
+    number= 12;  
+  }
+  else if(row==3){
+    if(column== 0)
+    number= 14;  
+    else if(column== 1)
+    number= 0;    
+    else if(column== 2)
+    number= 15;    
+    else if(column== 3)
+    number= 13;    
+  }
 
-int print_number(int row,int column){
-int number=0;
-if(row==0){                                             //find the number corresponding to the found row and column
-  if(column== 0)
-  number= 1;
-  else if(column== 1)  
-  number= 2;
-  else if(column== 2)
-  number= 3;  
-  else if(column== 3)
-  number= 10;  
-}
-else if(row==1){
-  if(column== 0)
-  number= 4;  
-  else if(column== 1)
-  number= 5;    
-  else if(column== 2)
-  number= 6;    
-  else if(column== 3)
-  number= 11;    
-}
-else if(row==2){
-  if(column== 0)
-  number= 7;  
-  else if(column== 1)
-  number= 8;    
-  else if(column== 2)
-  number= 9;    
-  else if(column== 3)  
-  number= 12;  
-}
-else if(row==3){
-  if(column== 0)
-  number= 14;  
-  else if(column== 1)
-  number= 0;    
-  else if(column== 2)
-  number= 15;    
-  else if(column== 3)
-  number= 13;    
+  return number;
 }
 
-if(number <10){
-digitalWrite((number+2),HIGH);
-Serial.print(number);
+
+void print_number(int number){
+
+  if(number <10){
+  Serial.print(number);
+  }
+
+  else if(number ==10)
+  Serial.print('A');
+  else if(number ==11)
+  Serial.print('B');
+  else if(number ==12)
+  Serial.print('C');
+  else if(number ==13)
+  Serial.print('D');
+  else if(number ==14)
+  Serial.print('*');
+  else if(number ==15)
+  Serial.print('#');
+  Serial.print("\n");
+  if(DELAY) delay(800);
 }
-else if(number ==10)
-Serial.print('A');
-else if(number ==11)
-Serial.print('B');
-else if(number ==12)
-Serial.print('C');
-else if(number ==13)
-Serial.print('D');
-else if(number ==14)
-Serial.print('*');
-else if(number ==15)
-Serial.print('#');
-Serial.print("\n");
-if(DELAY) delay(800);
-for(int i=2;i<=12;i++){
-  digitalWrite(i,LOW);
-}
-return number;
+
+void decode_tones(int *row, int *column){
+
+  int i=0;
+
+  while(1){
+    if(detect_tone(x_frequencies[i]) == true){
+      *column = i;
+      break;
+    }
+    i++;
+  if(i==4) i=0;
+  }
+
+  i=0;
+  while(1){
+  if(detect_tone(y_frequencies[i]) == true){
+      *row = i;
+      break;
+    }
+    i++;
+  if(i==4) i=0;
+  }
+
 }
 
 void loop(){
-int column=0,row=0;
-int i=0;
-int number = 0;
-while(1){
-  if(detect_tone(x_frequencies[i]) == true){
-    column = i;
-    break;
-  }
-  i++;
-if(i==4)
-i=0;
-}
+  int number = 0;
+  int row = 0;
+  int column = 0;
 
-i=0;
-while(1){
-if(detect_tone(y_frequencies[i]) == true){
-    row = i;
-    break;
-  }
-   i++;
-if(i==4)
-i=0;
-}
-number = print_number(row,column);
-if( number == 5){
-  digitalWrite(LED_PIN, HIGH);
+  decode_tones(&row, &column);
+  number = find_number(row,column);
+  print_number(number);
   delay(500);
-  digitalWrite(LED_PIN, LOW);
-}
+
+  //int column=0,row=0;
+  if( number == 5){
+    digitalWrite(LED_PIN, HIGH);
+    delay(500);
+    digitalWrite(LED_PIN, LOW);
+  }
 
 }
