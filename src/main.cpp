@@ -32,16 +32,17 @@ const float sampling_freq = 8900;        //maximum detectable frequency is the s
 const float threshhold = 2000;
 float x_frequencies[4] = {1209, 1336, 1477, 1633}; // Defined by the DTMF standard 
 float y_frequencies[4] = { 697,  770,  852,  941};
-const int buffLen = 5;
+const int buffLen = 6;
 int wordBuffer[buffLen] = {0,0,0,0,0};
 int buffIndex = 0;
-unsigned int lastBuffInsert = 0;
-const unsigned int debounce = 1000; // ms
+unsigned long lastBuffInsert = 0;
+const unsigned long debounce = 800; // ms
+//const unsigned int timeout = 10000;
 
 void setup(){
  
   Serial.begin(9600); 
-
+  lastBuffInsert = millis();
 }
 
 // Takes in a frequency (Hz) and returns the detected magnitude
@@ -207,40 +208,73 @@ int decode_DTMF(){
   return number;
 }
 
-int prevIndex(){
-  return buffIndex <= 0 ? buffLen -1 : buffIndex - 1;
+int prevIndex(int num){
+  //return buffIndex <= 0 ? buffLen -1 : buffIndex - 1;
+
+  return buffIndex - num < 0 ? buffLen + buffIndex - num : buffIndex - num;
+  
+  }
+
+
+void clear_buffer(){
+  for(int i=0; i<buffLen; i++){
+    wordBuffer[i] = 0;
+  }
+  delay(1000);
 }
+
 
 void read_buffer(){
 
+  int cmd0 = wordBuffer[prevIndex(2)];
+  if(cmd0 != 14) return; // All commands must start with a *
+  int cmd = wordBuffer[prevIndex(1)] * 10 + wordBuffer[buffIndex];
+  // Serial.print("cmd: ");
+  // Serial.println(cmd);
+
+  switch(cmd){
+    case 69:
+      int num = wordBuffer[prevIndex(3)] + wordBuffer[prevIndex(4)] * 10 + wordBuffer[prevIndex(5)] * 100;
+      Serial.print("Nice. ");
+      Serial.println(num);
+      if(num == 420) Serial.println("Blaze it");
+      clear_buffer();
+      break;
+
+    case 160: // *##
+      clear_buffer();
+      break;
+
+    default:
+      clear_buffer();
+ }
+
+return;
 }
 
 void decode_word(){
 
- int number = decode_DTMF();
- if ( number == -1 || (wordBuffer[prevIndex()] == number && (lastBuffInsert + debounce) > millis()  )) return;
- print_number(number);
- //delay(500);
+  int number = decode_DTMF();
+  if ( number == -1 || (wordBuffer[prevIndex(1)] == number && (lastBuffInsert + debounce) > millis()  )) return;
+  print_number(number);
 
- wordBuffer[buffIndex] = number;
- lastBuffInsert = millis();
- 
- if(wordBuffer[buffIndex] == 9 && wordBuffer[prevIndex()] == 6){
-  Serial.println("Nice.");
- }
+  wordBuffer[buffIndex] = number;
+  lastBuffInsert = millis();
 
- buffIndex++;
- if(buffIndex >= buffLen) buffIndex = 0;
+  read_buffer();
 
- return;
+  buffIndex++;
+  if(buffIndex >= buffLen) buffIndex = 0;
+
+  return;
 }
 
 void loop(){
 
-  // calibrate();
-  // delay(1000);
+  calibrate();
+  delay(1000);
 
-  decode_word();
+  //decode_word();
 
   // int number = decode_DTMF();
   // print_number(number);
