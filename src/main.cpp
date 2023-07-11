@@ -26,7 +26,7 @@
 #include <Goertzel.h>
 
 const int sensorPin = A0; // Audio input
-const int LED_PIN = 2;
+const int LED_PIN = 13;
 const int N = 100;                       // Number of samples per measurement
 const float sampling_freq = 8900;        //maximum detectable frequency is the sampling rate/2 and arduino uno with 16Mhz can support sampling up to 8900 Hz
 const float threshhold = 2000;
@@ -39,10 +39,28 @@ unsigned long lastBuffInsert = 0;
 const unsigned long debounce = 800; // ms
 //const unsigned int timeout = 10000;
 
+void blink();
+
 void setup(){
  
   Serial.begin(9600); 
   lastBuffInsert = millis();
+  pinMode(LED_PIN, OUTPUT);
+  blink();
+  blink();
+  blink();
+
+}
+
+void blink(){
+
+  for(int i = 0; i<5; i++){
+    digitalWrite(LED_PIN, HIGH);
+    delay(200);
+    digitalWrite(LED_PIN, LOW);
+    delay(200);
+  }
+
 }
 
 // Takes in a frequency (Hz) and returns the detected magnitude
@@ -229,24 +247,40 @@ void read_buffer(){
   int cmd0 = wordBuffer[prevIndex(2)];
   if(cmd0 != 14) return; // All commands must start with a *
   int cmd = wordBuffer[prevIndex(1)] * 10 + wordBuffer[buffIndex];
-  // Serial.print("cmd: ");
-  // Serial.println(cmd);
+  Serial.print("cmd: ");
+  Serial.println(cmd);
 
   switch(cmd){
+    case 42:
+    {
+      digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+      //digitalWrite(LED_PIN, HIGH);
+      //Serial.println("LED!!");
+      break;
+    }
     case 69:
+    {
       int num = wordBuffer[prevIndex(3)] + wordBuffer[prevIndex(4)] * 10 + wordBuffer[prevIndex(5)] * 100;
       Serial.print("Nice. ");
       Serial.println(num);
       if(num == 420) Serial.println("Blaze it");
       clear_buffer();
       break;
-
+    }
     case 160: // *##
+      {
+      Serial.println("Clearing Buffer");
       clear_buffer();
       break;
-
+      }
     default:
+      {
+      //blink();
+      digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+      delay(200);
+      digitalWrite(LED_PIN, !digitalRead(LED_PIN));
       clear_buffer();
+      }
  }
 
 return;
@@ -271,10 +305,10 @@ void decode_word(){
 
 void loop(){
 
-  calibrate();
-  delay(1000);
+  // calibrate();
+  // delay(1000);
 
-  //decode_word();
+  decode_word();
 
   // int number = decode_DTMF();
   // print_number(number);
